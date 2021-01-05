@@ -12,17 +12,35 @@ app.use(bodyParser.json())
 
 app.use('/', express.static(path.join(__dirname, '../public')))
 
-// your API calls
+function transformPhotos(photos) {
+    return photos.latest_photos
+        .map((obj) => { return { id: obj.id, img_src: obj.img_src, earth_date: obj.earth_date } })
+        .slice(0, 10);
+}
 
-// example API call
-app.get('/apod', async (req, res) => {
+function transformManifest(manifest) {
+    return {
+        "landingDate": manifest.photo_manifest.landing_date,
+        "launchDate": manifest.photo_manifest.launch_date,
+        "state": manifest.photo_manifest.status
+
+    };
+}
+
+app.get('/rover/:rover', async(req, res) => {
     try {
-        let image = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${process.env.API_KEY}`)
+        let rover = req.params.rover;
+        let manifest = await fetch(`https://api.nasa.gov/mars-photos/api/v1/manifests/` + rover + `?api_key=${process.env.API_KEY}`)
+            .then(res => res.json());
+        let photos = await fetch(` https://api.nasa.gov/mars-photos/api/v1/rovers/` + rover + `/latest_photos?api_key=${process.env.API_KEY}`)
             .then(res => res.json())
-        res.send({ image })
+        res.send({
+            manifest: transformManifest(manifest),
+            photos: transformPhotos(photos)
+        })
     } catch (err) {
         console.log('error:', err);
     }
 })
 
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+app.listen(port, () => console.log(`App listening on port ${port}!`))
